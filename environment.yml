@@ -1,0 +1,8 @@
+name: ai
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.8
+  - gym
+prefix: C:\Users\Martin\anaconda3\envs\ai
