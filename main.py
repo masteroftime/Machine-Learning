@@ -8,37 +8,31 @@ gamma = 1  # discounting factor
 
 
 class QAgent:
-    def __init__(self, env, dims, map_func=None):
+    def __init__(self, env, dims):
         self.env = env
         self.q = np.zeros(dims)
-        self.map = map_func
+        self.dims = dims
 
     def policy_greedy(self, state):
         qs = self.q[state]
 
-        if qs[0] == qs[1]:
-            return randrange(2)
-        else:
-            return qs.argmax()
+        # return maximum value, break ties randomly
+        return np.random.choice(np.flatnonzero(np.isclose(qs, qs.max())))
 
     def policy_epsilon(self, state):
         if random() < epsilon:
-            return randrange(2)
+            return randrange(self.dims[-1])
         else:
             return self.policy_greedy(state)
 
     def training(self, num_epochs):
         for i in range(num_epochs):
             state = self.env.reset()
-            if self.map is not None:
-                state = self.map(state)
             done = False
 
             while not done:
                 action = self.policy_epsilon(state)
                 new_state, reward, done, _ = self.env.step(action)
-                if self.map is not None:
-                    new_state = self.map(new_state)
 
                 if done:
                     self.q[state + (action, )] += alpha * (
@@ -57,15 +51,11 @@ class QAgent:
 
         for i in range(num_epochs):
             state = self.env.reset()
-            if self.map is not None:
-                state = self.map(state)
             done = False
 
             while not done:
                 action = self.policy_greedy(state)
                 new_state, reward, done, _ = self.env.step(action)
-                if self.map is not None:
-                    state = self.map(new_state)
 
             if reward > 0:
                 wins += 1
@@ -83,10 +73,19 @@ class QAgent:
 #  - action (0-1)
 dims = (18, 10, 2, 2)
 
+class BlackjackWrapper:
+  def __init__(self):
+    self.env = gym.make('Blackjack-v0')
 
-def map_state(state):
+  def map_state(self, state):
     return (state[0] - 4, state[1] - 1, int(state[2]))
+  
+  def reset(self):
+    return self.map_state(self.env.reset())
+  
+  def step(self, action):
+    new_state, reward, done, _ = self.env.step(action)
+    return self.map_state(new_state), reward, done, _
 
-
-env = gym.make('Blackjack-v0')
-agent = QAgent(env, dims, map_state)
+env = BlackjackWrapper()
+agent = QAgent(env, dims)
