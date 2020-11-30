@@ -20,6 +20,9 @@ class TableAgent:
         n_observations = env.observation_space.n
             
         self.q = np.zeros((n_observations, n_actions))
+        
+        self.rewards = []
+        self.steps = []
     
     def policy_greedy(self, state):
         actions = self.q[state]
@@ -36,6 +39,29 @@ class TableAgent:
             return rng.integers(len(self.q[state]))
         else:
             return self.policy_greedy(state)
+    
+    def avg_rewards(self):
+        sum = 0
+        avg = np.empty(len(self.rewards))
+        for i in range(len(self.rewards)):
+            sum += self.rewards[i]
+            avg[i] = sum / (i+1)
+        return avg
+    
+    def evaluate(self, n=1000):
+        sum_rewards = 0
+        sum_steps = 0
+        
+        for i in range(n):
+            state = self.env.reset()
+            done = False
+            while not done:
+                action = self.policy_greedy(state)
+                state, reward, done, _ = self.env.step(action)
+                sum_rewards += reward
+                sum_steps += 1
+        
+        return sum_rewards/n, sum_steps/n
             
 class MonteCarloAgent(TableAgent):
     def __init__(self, env):
@@ -43,7 +69,7 @@ class MonteCarloAgent(TableAgent):
         self.n = np.zeros(self.q.shape, dtype=int)
 
         
-    def train(self, episodes=1000, verbose=True):
+    def train(self, episodes=1000, verbose=True):        
         for i in range(episodes):
             state = self.env.reset()
             done = False
@@ -52,6 +78,9 @@ class MonteCarloAgent(TableAgent):
             rewards = []
             G = 0
             
+            self.rewards.append(0)
+            self.steps.append(0)
+            
             while not done:
                 action = self.policy_epsilon(state)
                 states.append(state)
@@ -59,6 +88,9 @@ class MonteCarloAgent(TableAgent):
                 
                 state, reward, done, _ = self.env.step(action)
                 rewards.append(reward)
+                
+                self.rewards[-1] += reward
+                self.steps[-1] += 1
             
             if verbose:
                 print(f'Episode {i+1} - reward: {sum(rewards)}   steps: {len(states)}')
@@ -74,3 +106,13 @@ class MonteCarloAgent(TableAgent):
 
 env = gym.make('FrozenLake-v0', is_slippery=True)
 agent = MonteCarloAgent(env)
+
+
+for i in range(1,20):
+    print(f'{i} ...')
+    agent.epsilon = 0.2/i
+    agent.train(10000, verbose=False)
+    print(f'Epsilon -> avg reward: {agent.avg_rewards()[-1]}')
+    
+    avg_reward, avg_steps = agent.evaluate()
+    print(f'Greedy -> avg reward: {avg_reward}   avg steps: {avg_steps}')
