@@ -69,7 +69,7 @@ class MonteCarloAgent(TableAgent):
         self.n = np.zeros(self.q.shape, dtype=int)
 
         
-    def train(self, episodes=1000, verbose=True):        
+    def train(self, episodes=1000, verbose=False):        
         for i in range(episodes):
             state = self.env.reset()
             done = False
@@ -101,18 +101,62 @@ class MonteCarloAgent(TableAgent):
                 G = self.gamma*G + rewards[-j]
                 self.n[s,a] += 1
                 self.q[s,a] += (G - self.q[s,a]) / self.n[s,a]
+
+class QAgent(TableAgent):
+    def __init__(self, env):
+        super().__init__(env)
+        self.alpha = 0.1
+    
+    def train(self, episodes=1000, verbose=False):
+        for i in range(episodes):
+            state = self.env.reset()
+            done = False
+            
+            self.rewards.append(0)
+            self.steps.append(0)
+            
+            while not done:
+                action = self.policy_epsilon(state)
+                new_state, reward, done, _ = self.env.step(action)
                 
+                self.q[state, action] += self.alpha*(reward + self.gamma * self.q[new_state].max() - self.q[state, action])
+                state = new_state
+                
+                self.rewards[-1] += reward
+                self.steps[-1] += 1
+        
                 
 
 env = gym.make('FrozenLake-v0', is_slippery=True)
-agent = MonteCarloAgent(env)
+
+agent = QAgent(env)
+agent.epsilon = 0.05
+
+r = []
+
+agent.train(10000)
+
+for i in range(100):
+    print(i)
+    r.append(agent.evaluate(100)[0])
+
+# agent = MonteCarloAgent(env)
+
+# greedy = []
+
+# for i in range(100):
+#     agent.train(100)
+#     r, s = agent.evaluate(1000)
+#     greedy.append(r)
 
 
-for i in range(1,20):
-    print(f'{i} ...')
-    agent.epsilon = 0.2/i
-    agent.train(10000, verbose=False)
-    print(f'Epsilon -> avg reward: {agent.avg_rewards()[-1]}')
+#agent.train(10000)
+
+# for i in range(1,10):
+#     print(f'{i} ...')
+#     agent.epsilon = 0.1/i
+#     agent.train(10000, verbose=False)
+#     print(f'Epsilon -> avg reward: {agent.avg_rewards()[-1]}')
     
-    avg_reward, avg_steps = agent.evaluate()
-    print(f'Greedy -> avg reward: {avg_reward}   avg steps: {avg_steps}')
+#     avg_reward, avg_steps = agent.evaluate()
+#     print(f'Greedy -> avg reward: {avg_reward}   avg steps: {avg_steps}')
