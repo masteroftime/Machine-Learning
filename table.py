@@ -125,22 +125,74 @@ class QAgent(TableAgent):
                 self.rewards[-1] += reward
                 self.steps[-1] += 1
         
+class DoubleQAgent(TableAgent):
+    def __init__(self, env):
+        super().__init__(env)
+        self.alpha = 0.1
+         
+        self.q1 = self.q
+        self.q2 = np.zeros(self.q.shape)
+    
+    def policy_greedy(self, state):
+        actions = self.q1[state] + self.q2[state]
+        
+        max_actions = np.where(actions == np.max(actions))[0]
+        
+        if len(max_actions) > 1:
+            return rng.choice(max_actions)
+        else:
+            return max_actions[0]
+    
+    def train(self, episodes=1000, verbose=False):
+        for i in range(episodes):
+            state = self.env.reset()
+            done = False
+            
+            self.rewards.append(0)
+            self.steps.append(0)
+            
+            while not done:
+                action = self.policy_epsilon(state)
+                new_state, reward, done, _ = self.env.step(action)
                 
+                if rng.random() < 0.5:
+                    self.q1[state, action] += self.alpha*(reward + self.gamma * self.q2[new_state, self.q1[new_state].argmax()] - self.q1[state, action])
+                else:
+                    self.q2[state, action] += self.alpha*(reward + self.gamma * self.q1[new_state, self.q2[new_state].argmax()] - self.q2[state, action])
+                
+                
+                state = new_state
+                
+                self.rewards[-1] += reward
+                self.steps[-1] += 1
+
+
+def moving_avg(a):
+    sum = 0
+    avg = np.empty(len(a))
+    for i in range(len(a)):
+        sum += a[i]
+        avg[i] = sum / (i+1)
+    return avg
 
 env = gym.make('FrozenLake-v0', is_slippery=True)
 
-agent = QAgent(env)
-agent.epsilon = 0.05
+# agent = QAgent(env)
+# agent.epsilon = 0.01
+# agent.alpha = 0.01
 
-r = []
+# r = []
 
-agent.train(10000)
+# # agent.train(10000)
 
-for i in range(100):
-    print(i)
-    r.append(agent.evaluate(100)[0])
+# for i in range(100):
+#     print(i)
+#     agent.train(100)
+#     r.append(agent.evaluate(100)[0])
 
 # agent = MonteCarloAgent(env)
+
+
 
 # greedy = []
 
